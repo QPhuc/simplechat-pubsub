@@ -1,0 +1,16 @@
+{
+  "generatedBy": "Microsoft.NET.Sdk.Functions-3.0.11",
+  "configurationSource": "attributes",
+  "bindings": [
+    {
+      "type": "webPubSubTrigger",
+      "hub": "",
+      "eventName": "connected",
+      "eventType": "system",
+      "name": "connectionContext"
+    }
+  ],
+  "disabled": false,
+  "scriptFile": "../bin/SimpleChat.dll",
+  "entryPoint": "SimpleChat.Functions.Connected"
+}
