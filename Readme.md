@@ -1,28 +1,33 @@
-# Simple Chat
+# Create a Chat app
 
 ## Prerequisites
-1. [Azure Function Core Tools(v3)](https://www.npmjs.com/package/azure-functions-core-tools)
-2. [Azure Storage Emulator](https://go.microsoft.com/fwlink/?linkid=717179&clcid=0x409) or valid Azure Storage connection string.
+
+1. [ASP.NET Core 3.1 or above](https://docs.microsoft.com/aspnet/core)
+2. Create an [Azure Web PubSub](https://ms.portal.azure.com/#blade/HubsExtension/BrowseResource/resourceType/Microsoft.SignalRService%2FWebPubSub) resource on Azure Portal
 3. [localtunnel](https://github.com/localtunnel/localtunnel) to expose our localhost to internet
 
-## Setup and Run
+## Start the server
 
-1. Copy **Connection String** from **Keys** tab of the created Azure Web PubSub service, and replace the `<connection-string>` below with the value of your **Connection String** in `local.settings.json`.
+Copy **Connection String** from **Keys** tab of the created Azure Web PubSub service. Run the below command with the `<connection-string>` replaced by the value of your **Connection String**. We are using [Secret Manager](https://docs.microsoft.com/aspnet/core/security/app-secrets#secret-manager) tool for .NET Core to set the connection string.
 
-![Connection String](./../../../../docs/images/portal_conn.png)
-
-2. Start app
+![Connection String](./../../../docs/images/portal_conn.png)
 
 ```bash
-func start
+dotnet restore
+dotnet user-secrets set Azure:WebPubSub:ConnectionString "<connection-string>"
+dotnet run --urls http://localhost:8080
 ```
 
-3. Use localtunnel to expose localhost
+The server is then started:
+* The web page is http://localhost:8080/index.html
+* The web app is listening to event handler requests at http://localhost:8080/eventhandler
+
+## Use localtunnel to expose localhost
 
 [localtunnel](https://github.com/localtunnel/localtunnel) is an open-source project that help expose your localhost to public. [Install the tool](https://github.com/localtunnel/localtunnel#installation) and run:
 
 ```bash
-lt --port 7071 --print-requests
+lt --port 8080 --print-requests
 ```
 
 localtunnel will print out an url (`https://<domain-name>.loca.lt`) that can be accessed from internet, e.g. `https://xxx.loca.lt`.
@@ -33,41 +38,25 @@ localtunnel will print out an url (`https://<domain-name>.loca.lt`) that can be 
 There are also other tools to choose when debugging the webhook locally, for example, [ngrok](​https://ngrok.com/), [loophole](https://loophole.cloud/docs/), [TunnelRelay](https://github.com/OfficeDev/microsoft-teams-tunnelrelay) or so. Some tools might have issue returning response headers correctly. Try the following command to see if the tool is working properly:
 
 ```bash
-curl https://<domain-name>.loca.lt/runtime/webhooks/webpubsub -X OPTIONS -H "WebHook-Request-Origin: *" -H "ce-awpsversion: 1.0" --ssl-no-revoke -i
+curl https://<domain-name>.loca.lt/eventhandler -X OPTIONS -H "WebHook-Request-Origin: *" -H "ce-awpsversion: 1.0" --ssl-no-revoke -i
 ```
 
 Check if the response header contains `webhook-allowed-origin: *`. This curl command actually checks if the WebHook [abuse protection request](https://docs.microsoft.com/azure/azure-web-pubsub/reference-cloud-events#webhook-validation) can response with the expected header.
 
+## Configure the event handler
 
-4. Update event handler settings in **Azure Portal** -> **Settings** to enable service route events to current function app.
+Event handler can be set from portal or through Azure CLI, here contains the detailed [instructions](https://docs.microsoft.com/azure/azure-web-pubsub/howto-develop-eventhandler) for how to.
 
-Property|Value
---|--
-`HubName`| sample_funcchat
-`URL Template`| https://*{random-id}*.loca.lt/runtime/webhooks/webpubsub
-`User Event Pattern`| *
-`System Events`| connect, connected, disconnected
+Go to the **Settings** tab to configure the event handler for this `Sample_ChatApp` hub:
 
-![Event Handler](./../../../../docs/images/portal_event_handler.png)
+1. Click **Add** to add setting for hub `Sample_ChatApp`.
 
-5. Open function hosted page `http://localhost:7071/api/index` to start chat.
+2. Set Url template to `https://<domain-name>.loca.lt/eventhandler` and check `connected` system event, click "Save".
 
-## Deploy Functions to Azure
+    ![Event Handler](images/portal_event_handler.png)
 
-Now you've been able to run with Web PubSub service in local function. And next you can deploy the function to Azure for a complete cloud environment.
+## Start the chat
 
-1. Open the VS Code command palette(`F1`) and search and find: **Azure Functions: Deploy to Function App**. Ensure you've installed extensions: [**Azure Functions**](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-azurefunctions).
+Open http://localhost:8080/index.html, input your user name, and send messages.
 
-2. When prompted, select/create resource accordingly.
-
-3. Different from local functions, Azure Function App requires to access with valid keys when using webhook. So the event handler settings need an additional query part. 
-
-    First navigate to **Azure Portal** and find the function app you just created. Then go to **Functions** -> **App keys** -> **System keys**. Copy out the `API_KEY` value for webpubsub_extension.
-
-    ![Function App Keys](./../../../../docs/images/functions_appkeys.png)
-
-    Update event handler settings for your Web PubSub service in **Azure Portal** -> **Settings**, and replace function app name and `API_KEY` following below pattern.
-
-    ```
-    https://{function-app}.azurewebsites.net/runtime/webhooks/webpubsub?Code={API_KEY}
-    ```
+You can see in the localtunnel command window that there are requests coming in with every message sent from the page.
